@@ -21,10 +21,154 @@ if TYPE_CHECKING:
 class NoInput(Endpoint):
     """
     The necessary endpoints for a custom producer (or rotator) that does not accept any input from the client.
+
+    First and foremost, the corresponding Akeyless docs:
+
+     * https://docs.akeyless.io/docs/custom-producer
+     * https://docs.akeyless.io/docs/create-a-custom-rotated-secret
+
+    The overall idea is that Akeyless manages the storage of your "root" credentials, and reaches out to
+    these custom producer endpoints to facilitate the creation/revocation of temporary credentials, as well
+    as the rotation of your root credentials.  Akeyless always provides the necessary credentials (which it
+    stores in the `payload` of your producer/rotator) to these endpoints on every call.  Therefore, you don't
+    have to (and in fact you **shouldn't!**) store any access credentials or other sensitive data for use
+    by these endpoints.  The expectation is that the actual custom producer webhooks you manage with this
+    module are fully stateless.  This simplifies both management and security - since they have no access on
+    their own and rely exclusively on credentials provided by Akeyless when called, there's no risk of
+    escalation of privileges or AuthN/AuthZ bypass.  In fact, AuthN/AuthZ become substantially less important
+    all together.
+
+    Managing producers and rotators boils down to three actions: creating new credentials, revoking old ones,
+    and rotating current ones.  This endpoint supports that by allowing you to provide a callable for each action.
+    Note though that not all vendors support all actions.  Some credentials can't be revoked (e.g. JWTs), and
+    not all vendors support credential rotation (for example, AWS access keys). Hoewver, even in the latter
+    case, rotation is still typically possible by issuing a new credential and revoking the old one (which
+    is how access key rotation works for AWS).  The following table shows what functionality is supported
+    depending on which callables you provide:
+
+    | Create | Rotate | Revoke | Custom Producer Support | Custom Rotator Support | Notes                                                                              |
+    |:------:|:------:|:------:|:-----------------------:|:----------------------:|------------------------------------------------------------------------------------|
+    |    ✓   |    ✓   |    ✓   |            ✓            |            ✓           | Creation, Rotation, and Revocation are all fully supported.                        |
+    |    ✓   |        |    ✓   |            ✓            |            ✓           | Rotation happens by creating a new credential/revoking the old one.                |
+    |    ✓   |    ✓   |        |            ✓            |            ✓           | Issued credentials are assumed to expire on their own.                             |
+    |    ✓   |        |        |            ✓            |                        | Issued credentials are assumed to expire on their own.  Rotation is not supported. |
+    |        |    ✓   |        |                         |            ✓           | Only supports custom rotators, not custom producers.                               |
+
+    So in short, you implement the create/revoke/rotate callables depending on vendor capabilities,
+    and then the above table shows what capabilities you can make use of.  This endpoint will expose the
+    necessary `/sync/create`, `/sync/rotate`, and `/sync/revoke` endpoints.  When those are called, the provided
+    payload (which is assumed to be in JSON format) is checked against the `payload_schema` you provide,
+    with the request rejected (with a clear error message) if it doesn't match.  Finally, the appropriate
+    create/revoke/rotate callable is invoked with the data from the provided payload.  Again, keep in mind
+    that there isn't a simple 1:1 correspondance.  If you don't define a rotate callable, but do provide
+    create and revoke, then a call to `/sync/rotate` will result in a call first to the create callable,
+    followed by a call to the revoke callable.
+
+    For an example, consider a (fairly) common use case of an OAuth server which allows for the generation
+    of JWTs from `client_id` and `client_secret`, and which also has an endpoint to rotate the client secret.
+    Therefore, the vendor supports create and rotate (but not revoke), which would look something like this:
+
+    ```
+    #!/usr/bin/env python
+    from clearskies import columns, validators
+    import clearskies
+    import clearskies_akeyless_custom_producer
+
+    # a schema to describe what we expect the payload to look like:
+    # it should contain client_id and client_secret, both of which are required
+    class ClientCredentials(clearskies.Schema):
+        client_id = columns.String(
+            validators=[validators.Required()]
+        )
+        client_secret = columns.String(
+            validators=[validators.Required()]
+        )
+
+    def create(client_id, client_secret, requests):
+        response = requests.post(
+            'https://example.com/oauth/token',
+            data={
+                "grant_type": "client_credentials",
+                "audience": "example.com",
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
+            headers={
+                "content-type": "application/x-www-form-urlencoded",
+            },
+        )
+        if response.status_code != 200:
+            raise clearskies.exceptions.ClientError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
+        return response.json()
+
+    def rotate(client_id, client_secret, requests):
+        jwt = create(client_id, client_secret, requests)["access_token"]
+
+        # of course, the details of a rotate request vary wildly from vendor-to-vendor, so this is just
+        # a basic placeholder.
+        rotate_response = requests.patch(
+            f"https://example.com/oauth/rotate",
+            headers={
+                "content-type": "application/json",
+                "Authorization": f"Bearer ${jwt}",
+            }
+        )
+
+        if rotate_response.status_code != 200:
+            raise clearskies.exceptions.ClientError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
+        new_client_secret = rotate_response.json().get("client_secret")
+        if not new_client_secret:
+            raise clearskies.exceptions.ClientError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
+
+        return {
+            "client_id": client_id,
+            "client_secret": new_client_secret,
+        }
+
+    # Finally, just wrap it all up in the Endpoint and attach it to the appropriate context
+    wsgi = clearskies.contexts.WsgiRef(
+        clearskies_akeyless_custom_producer.endpoints.NoInput(
+            create_callable=create,
+            rotate_callable=rotate,
+            payload_schema=ClientCredentials,
+        ),
+    )
+    wsgi()
+    ```
     """
 
     """
     A base URL for these endpoints.
+
+    Note that the standard Akeyless URLs (`/sync/create`, `/sync/rotate`, `/sync/revoke`) are always used by
+    this endpoint.  By setting a URL you add a prefix, which can be helpful if you want to host multiple
+    custom producers/rotators on the same infrastructure:
+
+    ```
+    import clearskies
+    import clearskies_akeyless_custom_producer
+
+    my_producers = clearskies.EndpointGroup([
+        clearskies_akeyless_custom_producer.endpoints.NoInput(
+            url="/vendor_1",
+            create=some_callable,
+            revoke=some_other_callable,
+        ),
+        clearskies_akeyless_custom_producer.endpoints.NoInput(
+            url="/vendor_2",
+            create=next_callable,
+            rotate=another_callable,,
+        ),
+    ])
+    ```
+
+    In which case your application ends up with all the applicable endpoints:
+
+     * `/vendor_1/sync/create`
+     * `/vendor_1/sync/revoke`
+     * `/vendor_1/sync/rotate`
+     * `/vendor_2/sync/create`
+     * `/vendor_2/sync/rotate`
     """
     url = clearskies.configs.String(default="")
 
