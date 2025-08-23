@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, Type
 
 import clearskies.configs
 import clearskies.exceptions
-import clearskies.decorators
 from clearskies import authentication, autodoc, typing
 from clearskies.authentication import Authentication, Authorization, Public
 from clearskies.endpoint import Endpoint
@@ -258,7 +257,6 @@ class NoInput(Endpoint):
 
     request_methods = ["POST"]
 
-    @clearskies.decorators.parameters_to_properties
     def __init__(
         self,
         url: str = "",
@@ -270,6 +268,19 @@ class NoInput(Endpoint):
         authentication: Authentication = Public(),
         authorization: Authorization = Authorization(),
     ):
+        self.url = url
+        if create_callable:
+            self.create_callable = create_callable
+        if revoke_callable:
+            self.revoke_callable = revoke_callable
+        if rotate_callable:
+            self.rotate_callable = rotate_callable
+        if payload_schema:
+            self.payload_schema = payload_schema
+        if id_column_name:
+            self.id_column_name = id_column_name
+        self.authentication = authentication
+        self.authorization = authorization
         super().__init__()
 
         # if revoke_callable is set and id_column_name isn't, then we have a problem.

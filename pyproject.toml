@@ -1,25 +1,25 @@
 [project]
 name = "clear-skies-akeyless-custom-producer"
 description = "Endpoints for managing Akeyless Custom Producers"
-version = "v0.0.0-dev"
+version = "v2.0.1"
 license = "MIT"
 dynamic = ["classifiers"]
 readme = "./README.md"
 authors = [{name = "Conor Mancone", email = "cmancone@gmail.com"}]
 requires-python = '>=3.11,<4.0'
-dependencies = ['clearskies (>=2.0.0,<3.0.0)']
+dependencies = ['clear-skies (>=2.0.0,<3.0.0)']
 
 [project.urls]
 repository = "https://github.com/clearskies-py/akeyless-custom-producer"
 
 [tool.poetry]
 packages = [
-    { include = "akeyless_custom_producer", from = "src" }
+    { include = "clearskies_akeyless_custom_producer", from = "src" }
 ]
 exclude = [
-    "src/akeyless_custom_producer/*_test.py",
-    "src/akeyless_custom_producer/**/*_test.py",
-    "src/akeyless_custom_producer/integration_tests/*",
+    "src/clearskies_akeyless_custom_producer/*_test.py",
+    "src/clearskies_akeyless_custom_producer/**/*_test.py",
+    "src/clearskies_akeyless_custom_producer/integration_tests/*",
     "docs/**"
 ]
 classifiers = [
@@ -40,13 +40,7 @@ mypy = "^1.16.1"
 pre-commit = "^3.8.0"
 pytest = "^8.4.1"
 ruff = "^0.12.1"
-types-dateparser = "^1.2.2.20250627"
-types-jwcrypto = "^1.5.0.20250516"
-types-pymysql = "^1.1.0.20250516"
 types-requests = "^2.32.4.20250611"
-
-[tool.pytest]
-addopts = "--ignore=src/clearskies/contexts/test.py --cache-clear"
 
 [build-system]
 requires = ['poetry-core (>=2.0,<3.0)']
