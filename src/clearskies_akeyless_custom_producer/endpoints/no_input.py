@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import inspect
+import json
 from typing import TYPE_CHECKING, Any, Callable, Type
 
 import clearskies.configs
@@ -9,13 +9,14 @@ import clearskies.exceptions
 from clearskies import authentication, autodoc, typing
 from clearskies.authentication import Authentication, Authorization, Public
 from clearskies.endpoint import Endpoint
-from clearskies.input_outputs import InputOutput
 from clearskies.functional import routing
+from clearskies.input_outputs import InputOutput
 
 if TYPE_CHECKING:
     from clearskies import Column, Schema, SecurityHeader
     from clearskies.model import Model
     from clearskies.schema import Schema
+
 
 class NoInput(Endpoint):
     """
@@ -263,7 +264,7 @@ class NoInput(Endpoint):
         create_callable: Callable | None = None,
         revoke_callable: Callable | None = None,
         rotate_callable: Callable | None = None,
-        payload_schema: Schema | None = None,
+        payload_schema: type[Schema] | None = None,
         id_column_name: str = "",
         authentication: Authentication = Public(),
         authorization: Authorization = Authorization(),
@@ -285,11 +286,13 @@ class NoInput(Endpoint):
 
         # if revoke_callable is set and id_column_name isn't, then we have a problem.
         if revoke_callable and not id_column_name:
-            raise ValueError("A revoke callable was provided but id_column_name is not set.  Without an id_column_name, revocation is disabled, so you should not set a revoke callable")
+            raise ValueError(
+                "A revoke callable was provided but id_column_name is not set.  Without an id_column_name, revocation is disabled, so you should not set a revoke callable"
+            )
 
     def handle(self, input_output: InputOutput):
         # figure out if we are creating, revoking, or rotating
-        base_url = self.url.strip('/')
+        base_url = self.url.strip("/")
         incoming_url = input_output.get_full_path().strip("/")
         expected_endpoints = {
             f"{base_url}/sync/create".strip("/"): self.create,
@@ -298,7 +301,7 @@ class NoInput(Endpoint):
         }
 
         method_to_execute = None
-        for (expected_url, method) in expected_endpoints.items():
+        for expected_url, method in expected_endpoints.items():
             (matches, routing_data) = routing.match_route(expected_url, incoming_url, allow_partial=False)
             if not matches:
                 continue
@@ -325,24 +328,20 @@ class NoInput(Endpoint):
                     self.payload_schema,
                 )
             except clearskies.exceptions.InputErrors as e:
-                return input_output.respond(
-                    ", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]),
-                    400
-                )
+                return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
         try:
             return method_to_execute(input_output, payload)
         except clearskies.exceptions.ClientError as e:
             return input_output.respond(str(e), 400)
         except clearskies.exceptions.InputErrors as e:
-            return input_output.respond(
-                ", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]),
-                400
-            )
+            return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
     def create(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         if not self.create_callable:
-            raise clearskies.exceptions.ClientError("Creating credentials is not available because not create_callable is configured.")
+            raise clearskies.exceptions.ClientError(
+                "Creating credentials is not available because not create_callable is configured."
+            )
 
         credentials = self.di.call_function(
             self.create_callable,
@@ -358,12 +357,15 @@ class NoInput(Endpoint):
                     f"Response from create callable did not include the required id column: '{self.id_column_name}'"
                 )
             # akeyless will only accept strings as the id value - no integers/etc
-            credential_id = str(credentials[id_column_name])
+            credential_id = str(credentials[self.id_column_name])
 
-        return input_output.respond({
-            'id': credential_id,
-            'response': credentials,
-        }, 200)
+        return input_output.respond(
+            {
+                "id": credential_id,
+                "response": credentials,
+            },
+            200,
+        )
 
     def revoke(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         try:
@@ -374,10 +376,13 @@ class NoInput(Endpoint):
         # if we don't have an id_column_name set then we can't revoke.  However, we still have to respond
         # with the same list of ids provided by Akeyless
         if not self.id_column_name:
-            return input_output.respond({
-                "revoked": ids,
-                "message": "",
-            }, 200)
+            return input_output.respond(
+                {
+                    "revoked": ids,
+                    "message": "",
+                },
+                200,
+            )
 
         for id in ids:
             self._di.call_function(
@@ -387,21 +392,29 @@ class NoInput(Endpoint):
                 id_to_delete=id,
             )
 
-        return input_output.respond({
-            "revoked": ids,
-            "message": "",
-        }, 200)
+        return input_output.respond(
+            {
+                "revoked": ids,
+                "message": "",
+            },
+            200,
+        )
 
     def rotate(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         # easy if we can actually rotate
         if self.rotate_callable:
-            return input_output.respond({
-                "payload": json.dumps(self.di.call_function(
-                    self.rotate_callable,
-                    **payload,
-                    payload=payload,
-                )),
-            }, 200)
+            return input_output.respond(
+                {
+                    "payload": json.dumps(
+                        self.di.call_function(
+                            self.rotate_callable,
+                            **payload,
+                            payload=payload,
+                        )
+                    ),
+                },
+                200,
+            )
 
         # otherwise we have to create/revoke
         new_payload = self.di.call_function(
@@ -418,13 +431,11 @@ class NoInput(Endpoint):
                 id_to_delete=payload.get(self.id_column_name),
             )
 
-        return input_output.respond({
-            "payload": json.dumps(new_payload)
-        })
+        return input_output.respond({"payload": json.dumps(new_payload)})
 
     def matches_request(self, input_output: InputOutput, allow_partial=False) -> bool:
         """
-        Check if we match the incoming request
+        Check if we match the incoming request.
 
         We *always* do some internal routing so we need the allow_partial flag to be true.
         Otherwise, we can rely on the logic in our parent.  Therefore, we extend this method just to
@@ -445,7 +456,7 @@ class NoInput(Endpoint):
                 )
             raise clearskies.exceptions.ClientError("'payload' in JSON POST must be a string containing JSON")
         try:
-            payload = json.loads(request_json['payload'])
+            payload = json.loads(request_json["payload"])
         except json.JSONDecodeError:
             raise clearskies.exceptions.ClientError("'payload' in JSON POST body was not a valid JSON string")
         return payload
