@@ -2,22 +2,15 @@ from __future__ import annotations
 
 import inspect
 import json
-from typing import TYPE_CHECKING, Any, Callable, Type
+from typing import Any, Callable
 
 import clearskies.configs
 import clearskies.exceptions
-from clearskies import authentication, autodoc, typing
 from clearskies.authentication import Authentication, Authorization, Public
-from clearskies.endpoint import Endpoint
-from clearskies.functional import routing
 from clearskies.input_outputs import InputOutput
+from clearskies.schema import Schema
 
 import clearskies_akeyless_custom_producer
-
-if TYPE_CHECKING:
-    from clearskies import Column, Schema, SecurityHeader
-    from clearskies.model import Model
-    from clearskies.schema import Schema
 
 
 class WithInput(clearskies_akeyless_custom_producer.endpoints.NoInput):
@@ -132,8 +125,8 @@ class WithInput(clearskies_akeyless_custom_producer.endpoints.NoInput):
         create_callable: Callable | None = None,
         revoke_callable: Callable | None = None,
         rotate_callable: Callable | None = None,
-        payload_schema: Schema | None = None,
-        input_schema: Schema | None = None,
+        payload_schema: type[Schema] | None = None,
+        input_schema: type[Schema] | None = None,
         id_column_name: str = "",
         authentication: Authentication = Public(),
         authorization: Authorization = Authorization(),
