@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
 import inspect
+import json
+
 from typing import TYPE_CHECKING, Any, Callable, Type
 
 import clearskies.configs
@@ -9,8 +10,8 @@ import clearskies.exceptions
 from clearskies import authentication, autodoc, typing
 from clearskies.authentication import Authentication, Authorization, Public
 from clearskies.endpoint import Endpoint
-from clearskies.input_outputs import InputOutput
 from clearskies.functional import routing
+from clearskies.input_outputs import InputOutput
 
 if TYPE_CHECKING:
     from clearskies import Column, Schema, SecurityHeader
@@ -358,7 +359,7 @@ class NoInput(Endpoint):
                     f"Response from create callable did not include the required id column: '{self.id_column_name}'"
                 )
             # akeyless will only accept strings as the id value - no integers/etc
-            credential_id = str(credentials[id_column_name])
+            credential_id = str(credentials[self.id_column_name])
 
         return input_output.respond({
             'id': credential_id,
