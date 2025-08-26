@@ -170,14 +170,6 @@ class WithInput(clearskies_akeyless_custom_producer.endpoints.NoInput):
         request_json = self.get_request_data(input_output, required=True)
         if "input" not in request_json or not request_json["input"]:
             return {}
-        if not isinstance(request_json["input"], str):
-            if isinstance(request_json["input"], dict):
-                raise clearskies.exceptions.ClientError(
-                    "'input' in the JSON POST body was a JSON object, but it should be a serialized JSON string"
-                )
-            raise clearskies.exceptions.ClientError("'input' in JSON POST must be a string containing JSON")
-        try:
-            input = json.loads(request_json["input"])
-        except json.JSONDecodeError:
-            raise clearskies.exceptions.ClientError("'input' in JSON POST body was not a valid JSON string")
-        return input
+        if not isinstance(request_json["input"], dict):
+            raise clearskies.exceptions.ClientError(f"'input' in the JSON POST body was not a JSON object")
+        return request_json["input"]
