@@ -1,7 +1,7 @@
 [project]
 name = "clear-skies-akeyless-custom-producer"
 description = "Endpoints for managing Akeyless Custom Producers"
-version = "v2.0.2"
+version = "v2.0.3"
 license = "MIT"
 dynamic = ["classifiers"]
 readme = "./README.md"

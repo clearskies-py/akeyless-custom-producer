@@ -10,10 +10,10 @@ from clearskies.authentication import Authentication, Authorization, Public
 from clearskies.input_outputs import InputOutput
 from clearskies.schema import Schema
 
-import clearskies_akeyless_custom_producer
+from .no_input import NoInput
 
 
-class WithInput(clearskies_akeyless_custom_producer.endpoints.NoInput):
+class WithInput(NoInput):
     """
     The necessary endpoints for a custom producer (or rotator) that does accept input from the client.
 
