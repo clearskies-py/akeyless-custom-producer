@@ -385,7 +385,7 @@ class NoInput(Endpoint):
             )
 
         for id in ids:
-            self._di.call_function(
+            self.di.call_function(
                 self.revoke_callable,
                 **payload,
                 payload=payload,
