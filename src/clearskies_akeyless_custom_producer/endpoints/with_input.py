@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import inspect
-import json
 from typing import Any, Callable
 
 import clearskies.configs
-import clearskies.exceptions
 from clearskies.authentication import Authentication, Authorization, Public
 from clearskies.input_outputs import InputOutput
 from clearskies.schema import Schema
 
-from .no_input import NoInput
+import clearskies_akeyless_custom_producer.endpoints.no_input
+import clearskies_akeyless_custom_producer.exceptions
 
 
-class WithInput(NoInput):
+class WithInput(clearskies_akeyless_custom_producer.endpoints.no_input.NoInput):
     """
     The necessary endpoints for a custom producer (or rotator) that does accept input from the client.
 
@@ -50,7 +48,7 @@ class WithInput(NoInput):
     def create(client_id, client_secret, scopes, allowed_scopes, requested_scope, requests):
         if requested_scope:
             if requested_scope not in allowed_scopes:
-                raise clearskies.exceptions.ClientError(f"Requested scope `{requested_scope}` is not allowed.")
+                raise clearskies_akeyless_custom_producer.exceptions.ProducerError(f"Requested scope `{requested_scope}` is not allowed.")
             scopes = requested_scope
 
         response = requests.post(
@@ -67,7 +65,7 @@ class WithInput(NoInput):
             },
         )
         if response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
         return response.json()
 
     def rotate(client_id, client_secret, requests):
@@ -84,10 +82,10 @@ class WithInput(NoInput):
         )
 
         if rotate_response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
         new_client_secret = rotate_response.json().get("client_secret")
         if not new_client_secret:
-            raise clearskies.exceptions.ClientError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
 
         return {
             "client_id": client_id,
@@ -147,7 +145,7 @@ class WithInput(NoInput):
     def create(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         try:
             input = self.get_input(input_output)
-        except clearskies.exceptions.ClientError as e:
+        except clearskies_akeyless_custom_producer.exceptions.ProducerError as e:
             return input_output.respond(str(e), 400)
 
         if self.input_schema:
@@ -160,7 +158,7 @@ class WithInput(NoInput):
                     input_output,
                     self.input_schema,
                 )
-            except clearskies.exceptions.InputErrors as e:
+            except clearskies_akeyless_custom_producer.exceptions.ProducerInputError as e:
                 return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
         payload = {**payload, **input}
@@ -171,5 +169,7 @@ class WithInput(NoInput):
         if "input" not in request_json or not request_json["input"]:
             return {}
         if not isinstance(request_json["input"], dict):
-            raise clearskies.exceptions.ClientError(f"'input' in the JSON POST body was not a JSON object")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerInputError(
+                f"'input' in the JSON POST body was not a JSON object"
+            )
         return request_json["input"]

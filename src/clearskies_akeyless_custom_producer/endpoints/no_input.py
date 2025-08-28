@@ -12,6 +12,8 @@ from clearskies.endpoint import Endpoint
 from clearskies.functional import routing
 from clearskies.input_outputs import InputOutput
 
+import clearskies_akeyless_custom_producer.exceptions
+
 if TYPE_CHECKING:
     from clearskies import Column, Schema, SecurityHeader
     from clearskies.model import Model
@@ -98,7 +100,7 @@ class NoInput(Endpoint):
             },
         )
         if response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
         return response.json()
 
     def rotate(client_id, client_secret, requests):
@@ -115,10 +117,10 @@ class NoInput(Endpoint):
         )
 
         if rotate_response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
         new_client_secret = rotate_response.json().get("client_secret")
         if not new_client_secret:
-            raise clearskies.exceptions.ClientError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
 
         return {
             "client_id": client_id,
@@ -314,7 +316,7 @@ class NoInput(Endpoint):
 
         try:
             payload = self.get_payload(input_output)
-        except clearskies.exceptions.ClientError as e:
+        except clearskies_akeyless_custom_producer.exceptions.ProducerError as e:
             return input_output.respond(str(e), 400)
 
         if self.payload_schema:
@@ -327,19 +329,19 @@ class NoInput(Endpoint):
                     input_output,
                     self.payload_schema,
                 )
-            except clearskies.exceptions.InputErrors as e:
+            except clearskies_akeyless_custom_producer.exceptions.ProducerInputError as e:
                 return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
         try:
             return method_to_execute(input_output, payload)
-        except clearskies.exceptions.ClientError as e:
+        except clearskies_akeyless_custom_producer.exceptions.ProducerError as e:
             return input_output.respond(str(e), 400)
-        except clearskies.exceptions.InputErrors as e:
+        except clearskies_akeyless_custom_producer.exceptions.ProducerInputError as e:
             return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
     def create(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         if not self.create_callable:
-            raise clearskies.exceptions.ClientError(
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
                 "Creating credentials is not available because not create_callable is configured."
             )
 
@@ -370,7 +372,7 @@ class NoInput(Endpoint):
     def revoke(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
         try:
             ids = self.get_ids(input_output)
-        except clearskies.exceptions.ClientError as e:
+        except clearskies_akeyless_custom_producer.exceptions.ProducerError as e:
             return input_output.respond(str(e), 400)
 
         # if we don't have an id_column_name set then we can't revoke.  However, we still have to respond
@@ -446,27 +448,35 @@ class NoInput(Endpoint):
     def get_payload(self, input_output: InputOutput) -> dict[str, Any]:
         request_json = self.get_request_data(input_output, required=True)
         if "payload" not in request_json:
-            raise clearskies.exceptions.ClientError("Missing 'payload' in JSON POST body")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Missing 'payload' in JSON POST body")
         if not request_json["payload"]:
-            raise clearskies.exceptions.ClientError("Provided 'payload' in JSON POST body was empty")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
+                "Provided 'payload' in JSON POST body was empty"
+            )
         if not isinstance(request_json["payload"], str):
             if isinstance(request_json["payload"], dict):
-                raise clearskies.exceptions.ClientError(
+                raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
                     "'payload' in the JSON POST body was a JSON object, but it should be a serialized JSON string"
                 )
-            raise clearskies.exceptions.ClientError("'payload' in JSON POST must be a string containing JSON")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
+                "'payload' in JSON POST must be a string containing JSON"
+            )
         try:
             payload = json.loads(request_json["payload"])
         except json.JSONDecodeError:
-            raise clearskies.exceptions.ClientError("'payload' in JSON POST body was not a valid JSON string")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
+                "'payload' in JSON POST body was not a valid JSON string"
+            )
         return payload
 
     def get_ids(self, input_output: InputOutput) -> list[str]:
         request_json = self.get_request_data(input_output, required=True)
         if "ids" not in request_json:
-            raise clearskies.exceptions.ClientError("Missing 'ids' in JSON POST body")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError("Missing 'ids' in JSON POST body")
         if not isinstance(request_json["ids"], list):
-            raise clearskies.exceptions.ClientError("'ids' in JSON POST body was not a list.")
+            raise clearskies_akeyless_custom_producer.exceptions.ProducerError(
+                "'ids' in JSON POST body was not a list."
+            )
         return request_json["ids"]  # type: ignore
 
     def populate_routing_data(self, input_output: InputOutput) -> Any:

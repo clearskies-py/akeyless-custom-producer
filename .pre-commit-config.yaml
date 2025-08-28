@@ -8,6 +8,9 @@ default_install_hook_types:
   - post-checkout
   - post-merge
 
+default_stages:
+  - pre-commit
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -54,7 +57,6 @@ repos:
         types: [python]
         additional_dependencies:
           [types-requests, clear-skies]
-        stages: ['pre-commit']
         args:
           - --check
   - repo: https://github.com/psf/black
@@ -62,16 +64,14 @@ repos:
     hooks:
       - id: black
         types: [python]
-        stages: ['pre-commit']
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.12.0
     hooks:
       # Run the linter.
       - id: ruff-check
-        stages: ['pre-commit']
         args:
-          - --diff
+          - --fix
       # Run the formatter.
   # - repo: local
   #   hooks:
