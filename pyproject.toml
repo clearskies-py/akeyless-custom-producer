@@ -3,53 +3,45 @@ name = "clear-skies-akeyless-custom-producer"
 description = "Endpoints for managing Akeyless Custom Producers"
 version = "v2.0.5"
 license = "MIT"
-dynamic = ["classifiers"]
 readme = "./README.md"
 authors = [{name = "Conor Mancone", email = "cmancone@gmail.com"}]
-requires-python = '>=3.11,<4.0'
-dependencies = ['clear-skies (>=2.0.0,<3.0.0)']
-
-[project.urls]
-repository = "https://github.com/clearskies-py/akeyless-custom-producer"
-
-[tool.poetry]
-packages = [
-    { include = "clearskies_akeyless_custom_producer", from = "src" }
-]
-exclude = [
-    "src/clearskies_akeyless_custom_producer/*_test.py",
-    "src/clearskies_akeyless_custom_producer/**/*_test.py",
-    "src/clearskies_akeyless_custom_producer/integration_tests/*",
-    "docs/**"
-]
+requires-python = ">=3.11,<4.0"
+dependencies = ["clear-skies>=2.0.0,<3.0.0"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers"
 ]
-requires-poetry = '>=2.0,<3.0'
 
-[[tool.poetry.source]]
-name = "PyPI"
-priority = "primary"
+[project.urls]
+Repository = "https://github.com/clearskies-py/akeyless-custom-producer"
+Issues = "https://github.com/clearskies-py/akeyless-custom-producer/issues"
+Changelog = "https://github.com/clearskies-py/akeyless-custom-producer/blob/main/CHANGELOG.md"
 
-[tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-mypy = "^1.16.1"
-pre-commit = "^3.8.0"
-pytest = "^8.4.1"
-ruff = "^0.12.1"
-types-requests = "^2.32.4.20250611"
+[project.optional-dependencies]
+dev = [
+    "types-requests>=2.32.4"
+]
 
 [build-system]
-requires = ['poetry-core (>=2.0,<3.0)']
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clearskies_akeyless_custom_producer"]
+
+[tool.hatch.build]
+exclude = [
+    "src/clearskies_akeyless_custom_producer/*_test.py",
+    "src/clearskies_akeyless_custom_producer/**/*_test.py",
+    "src/clearskies_akeyless_custom_producer/integration_tests/*",
+    "docs/**",
+    "tests/**"
+]
 
 [tool.black]
 line-length = 120
-# The following is Black's default, but it's good to be explicit
-# to match your Ruff config.
 skip-magic-trailing-comma = false
 preview = true
 
@@ -57,9 +49,27 @@ preview = true
 python_version = "3.11"
 
 exclude = [
- ".*_test\\.py$",
- "docs/.*"
+    ".*_test\\.py$",
+    "docs/.*"
 ]
 
-[tool.poetry-git-version-plugin]
-release_type = "tag"
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+    "integration",
+]
+pythonpath = [
+  "app"
+]
+
+# This is the dedicated section for uv"s configuration
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.10",
+]
