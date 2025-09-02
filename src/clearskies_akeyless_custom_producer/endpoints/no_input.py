@@ -74,19 +74,17 @@ class NoInput(Endpoint):
     import clearskies
     import clearskies_akeyless_custom_producer
 
+
     # a schema to describe what we expect the payload to look like:
     # it should contain client_id and client_secret, both of which are required
     class ClientCredentials(clearskies.Schema):
-        client_id = columns.String(
-            validators=[validators.Required()]
-        )
-        client_secret = columns.String(
-            validators=[validators.Required()]
-        )
+        client_id = columns.String(validators=[validators.Required()])
+        client_secret = columns.String(validators=[validators.Required()])
+
 
     def create(client_id, client_secret, requests):
         response = requests.post(
-            'https://example.com/oauth/token',
+            "https://example.com/oauth/token",
             data={
                 "grant_type": "client_credentials",
                 "audience": "example.com",
@@ -98,8 +96,11 @@ class NoInput(Endpoint):
             },
         )
         if response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Failed to fetch JWT from OAuth server. Response: " + response.content.decode('utf-8'))
+            raise clearskies.exceptions.ClientError(
+                "Failed to fetch JWT from OAuth server. Response: " + response.content.decode("utf-8")
+            )
         return response.json()
+
 
     def rotate(client_id, client_secret, requests):
         jwt = create(client_id, client_secret, requests)["access_token"]
@@ -111,19 +112,25 @@ class NoInput(Endpoint):
             headers={
                 "content-type": "application/json",
                 "Authorization": f"Bearer ${jwt}",
-            }
+            },
         )
 
         if rotate_response.status_code != 200:
-            raise clearskies.exceptions.ClientError("Rotate request rejected by OAuth Serve.  Response: " + rotate_response.content.decode('utf-8'))
+            raise clearskies.exceptions.ClientError(
+                "Rotate request rejected by OAuth Serve.  Response: "
+                + rotate_response.content.decode("utf-8")
+            )
         new_client_secret = rotate_response.json().get("client_secret")
         if not new_client_secret:
-            raise clearskies.exceptions.ClientError("Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :(")
+            raise clearskies.exceptions.ClientError(
+                "Huh, I did not understand the response from the OAuth server after my rotate request.  I could not find my new client secret :("
+            )
 
         return {
             "client_id": client_id,
             "client_secret": new_client_secret,
         }
+
 
     # Finally, just wrap it all up in the Endpoint and attach it to the appropriate context
     wsgi = clearskies.contexts.WsgiRef(
