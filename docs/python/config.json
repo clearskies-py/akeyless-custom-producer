@@ -1,0 +1,13 @@
+{
+  "tree": [
+     {
+            "title": "Endpoints",
+            "source": "clearskies.endpoint.Endpoint",
+            "builder": "clearskies_doc_builder.builders.Module",
+            "classes": [
+                "clearskies_akeyless_custom_producer.endpoints.NoInput",
+                "clearskies_akeyless_custom_producer.endpoints.WithInput"
+            ]
+        }
+  ]
+}

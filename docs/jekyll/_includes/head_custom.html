@@ -1,0 +1,47 @@
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    fetch('/modules/manifest.json')
+      .then(response => response.ok ? response.json() : Promise.reject('Manifest not found'))
+      .then(data => {
+        const placeholder = document.getElementById('dynamic-nav-placeholder');
+        if (!placeholder) return;
+
+        const dropdownContainer = document.createElement('div');
+        dropdownContainer.className = 'dynamic-dropdown';
+
+        const dropdownButton = document.createElement('button');
+        dropdownButton.className = 'dropdown-button';
+        dropdownButton.textContent = 'Producers ▼';
+
+        const dropdownContent = document.createElement('div');
+        dropdownContent.className = 'dropdown-content';
+
+        data.forEach(submodule => {
+          const link = document.createElement('a');
+          link.href = submodule.url;
+          link.textContent = submodule.name;
+          dropdownContent.appendChild(link);
+        });
+
+        dropdownContainer.appendChild(dropdownButton);
+        dropdownContainer.appendChild(dropdownContent);
+        placeholder.appendChild(dropdownContainer);
+
+        dropdownButton.addEventListener('click', function(event) {
+          event.stopPropagation();
+          dropdownContent.classList.toggle('show');
+        });
+
+        window.addEventListener('click', function(event) {
+          if (!dropdownButton.contains(event.target)) {
+            if (dropdownContent.classList.contains('show')) {
+              dropdownContent.classList.remove('show');
+            }
+          }
+        });
+      })
+      .catch(error => {
+        console.error('Failed to load navigation:', error);
+      });
+  });
+</script>
