@@ -1,2 +1,0 @@
-global-exclude *_test.py
-global-exclude tests/*.py

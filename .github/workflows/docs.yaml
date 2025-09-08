@@ -1,6 +1,7 @@
 name: Doc Publish
 
-on: workflow_call
+on:
+  workflow_dispatch:
 
 jobs:
     publish:
@@ -25,13 +26,18 @@ jobs:
             - name: Publish
               run: |
                   cd docs/python
-                  uv pip install --system --no-deps
-                  python build.py
+                  uv run build.py
                   sudo apt update
-                  sudo apt-get install -y ruby ruby-dev
+                  sudo apt-get install -y ruby ruby-dev jq
                   sudo gem install bundler
                   cd ../build
+                  cp ../../README.md _includes/project_readme.md
+                  cp ../../CHANGELOG.md _includes/project_changelog.md
                   sudo bundle install
                   sudo bundle exec jekyll build
                   cd _site
-                  aws s3 cp . s3://clearskies.info/modules/producers/clearskies_akeyless_custom_producer/ --recursive
+                  aws s3 cp . s3://clearskies.info/modules/producers/clear-skies-akeyless-custom-producer/ --recursive
+                  cd ../../python
+                  aws s3 cp s3://clearskies.info/modules/manifest.json . || touch manifest.json
+                  uv run update_manifest.py --pyproject_file=../../pyproject.toml --modules_location=modules
+                  aws s3 cp manifest.json s3://clearskies.info/modules/manifest.json
