@@ -1,7 +1,7 @@
 [project]
 name = "clear-skies-akeyless-custom-producer"
 description = "Endpoints for managing Akeyless Custom Producers"
-version = "v2.0.5"
+version = "2.0.6"
 license = "MIT"
 readme = "./README.md"
 authors = [{name = "Conor Mancone", email = "cmancone@gmail.com"}]
