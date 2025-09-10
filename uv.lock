@@ -103,21 +103,21 @@ wheels = [
 
 [[package]]
 name = "clear-skies"
-version = "2.0.4"
+version = "2.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dateparser" },
     { name = "requests" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/80/a39f25ff7e072d178df5a93acc0d5e6e2d5e955e189aad92abee3271569a/clear_skies-2.0.4.tar.gz", hash = "sha256:3c92f1cd506c32818c6c2a633c7a04dfbcece30a12f1a9483d62458d90e2c827", size = 190167 }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/e1/0d7e90a474806c32226d198102a9d5a1b2de3a458cebf39e324e948caf09/clear_skies-2.0.6.tar.gz", hash = "sha256:7930bcc074c501301526c92a1fe43796e2bb41507d72939e920ef1765de11c00", size = 258609 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4b/6c/5c86894ffbf2b914d53e05b630f5072a833c566762fcf3397fcb0d6cf8ad/clear_skies-2.0.4-py3-none-any.whl", hash = "sha256:27760e7120a9e5a02062dddb13b93dba9f4c56bdc3f8c0669ecc60adfee8529e", size = 313374 },
+    { url = "https://files.pythonhosted.org/packages/49/c6/e273d6c29695d57f1e528efb81e6f3f739007066d58e633a867df5f0776c/clear_skies-2.0.6-py3-none-any.whl", hash = "sha256:0da373f79cd592f0364ad85c1f9c061feb96b194aaed5ead5c6222b559899959", size = 313658 },
 ]
 
 [[package]]
 name = "clear-skies-akeyless-custom-producer"
-version = "2.0.5"
+version = "2.0.6"
 source = { editable = "." }
 dependencies = [
     { name = "clear-skies" },
@@ -411,16 +411,16 @@ wheels = [
 
 [[package]]
 name = "pytest-cov"
-version = "6.3.0"
+version = "7.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coverage", extra = ["toml"] },
     { name = "pluggy" },
     { name = "pytest" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/4c/f883ab8f0daad69f47efdf95f55a66b51a8b939c430dadce0611508d9e99/pytest_cov-6.3.0.tar.gz", hash = "sha256:35c580e7800f87ce892e687461166e1ac2bcb8fb9e13aea79032518d6e503ff2", size = 70398 }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b00089573cf6a2bc26dc80a8aece8f52bb7d6b1855ca/pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1", size = 54328 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/b4/bb7263e12aade3842b938bc5c6958cae79c5ee18992f9b9349019579da0f/pytest_cov-6.3.0-py3-none-any.whl", hash = "sha256:440db28156d2468cafc0415b4f8e50856a0d11faefa38f30906048fe490f1749", size = 25115 },
+    { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424 },
 ]
 
 [[package]]
