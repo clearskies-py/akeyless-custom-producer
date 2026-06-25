@@ -1,21 +1,18 @@
 from __future__ import annotations
 
-import inspect
 import json
-from typing import TYPE_CHECKING, Any, Callable, Type
+from typing import Any, Callable, cast
 
 import clearskies.configs
 import clearskies.exceptions
-from clearskies import authentication, autodoc, typing
 from clearskies.authentication import Authentication, Authorization, Public
+from clearskies.autodoc.request import JSONBody, Request
+from clearskies.autodoc.response import Response
+from clearskies.autodoc.schema import Array, Object, String
 from clearskies.endpoint import Endpoint
 from clearskies.functional import routing
 from clearskies.input_outputs import InputOutput
-
-if TYPE_CHECKING:
-    from clearskies import Column, Schema, SecurityHeader
-    from clearskies.model import Model
-    from clearskies.schema import Schema
+from clearskies.schema import Schema
 
 
 class NoInput(Endpoint):
@@ -474,8 +471,85 @@ class NoInput(Endpoint):
             raise clearskies.exceptions.ClientError("Missing 'ids' in JSON POST body")
         if not isinstance(request_json["ids"], list):
             raise clearskies.exceptions.ClientError("'ids' in JSON POST body was not a list.")
-        return request_json["ids"]  # type: ignore
+        return cast(list[str], request_json["ids"])
 
     def populate_routing_data(self, input_output: InputOutput) -> Any:
         # N/A for these endpoints
         return None
+
+    def documentation(self) -> list[Request]:
+        base_url = self.url.strip("/")
+        if not base_url:
+            return []
+
+        requests: list[Request] = []
+        if self.create_callable:
+            requests.append(
+                Request(
+                    description=f"Create credentials for {base_url}",
+                    request_methods=["POST"],
+                    relative_path=f"{base_url}/sync/create",
+                    parameters=[
+                        JSONBody(
+                            String("payload"),
+                            description="Serialized JSON payload",
+                            required=True,
+                        )
+                    ],
+                    responses=[
+                        Response(200, Object("response", [String("id"), String("response")]), "Create response"),
+                        Response(400, String("error"), "Client error"),
+                    ],
+                )
+            )
+
+        if self.revoke_callable:
+            requests.append(
+                Request(
+                    description=f"Revoke credentials for {base_url}",
+                    request_methods=["POST"],
+                    relative_path=f"{base_url}/sync/revoke",
+                    parameters=[
+                        JSONBody(
+                            String("payload"),
+                            description="Serialized JSON payload",
+                            required=True,
+                        ),
+                        JSONBody(
+                            Array("ids", String("id")),
+                            description="Credential ids to revoke",
+                            required=True,
+                        ),
+                    ],
+                    responses=[
+                        Response(
+                            200,
+                            Object("response", [Array("revoked", String("id")), String("message")]),
+                            "Revoke response",
+                        ),
+                        Response(400, String("error"), "Client error"),
+                    ],
+                )
+            )
+
+        if self.rotate_callable or self.create_callable:
+            requests.append(
+                Request(
+                    description=f"Rotate credentials for {base_url}",
+                    request_methods=["POST"],
+                    relative_path=f"{base_url}/sync/rotate",
+                    parameters=[
+                        JSONBody(
+                            String("payload"),
+                            description="Serialized JSON payload",
+                            required=True,
+                        )
+                    ],
+                    responses=[
+                        Response(200, Object("response", [String("payload")]), "Rotate response"),
+                        Response(400, String("error"), "Client error"),
+                    ],
+                )
+            )
+
+        return requests

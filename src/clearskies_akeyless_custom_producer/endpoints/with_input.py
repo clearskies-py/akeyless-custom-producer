@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import inspect
-import json
 from typing import Any, Callable
 
 import clearskies.configs
 import clearskies.exceptions
 from clearskies.authentication import Authentication, Authorization, Public
+from clearskies.autodoc.request import JSONBody, Request
+from clearskies.autodoc.schema import String
 from clearskies.input_outputs import InputOutput
 from clearskies.schema import Schema
 
@@ -181,3 +181,18 @@ class WithInput(NoInput):
         if not isinstance(request_json["input"], dict):
             raise clearskies.exceptions.ClientError(f"'input' in the JSON POST body was not a JSON object")
         return request_json["input"]
+
+    def documentation(self) -> list[Request]:
+        requests = super().documentation()
+
+        for request in requests:
+            if request.relative_path.endswith("/sync/create") or request.relative_path.endswith("/sync/rotate"):
+                request.add_parameter(
+                    JSONBody(
+                        String("input"),
+                        description="Serialized JSON input",
+                        required=False,
+                    )
+                )
+
+        return requests
