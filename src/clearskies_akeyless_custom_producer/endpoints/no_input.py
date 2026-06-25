@@ -6,7 +6,7 @@ from typing import Any, Callable, cast
 import clearskies.configs
 import clearskies.exceptions
 from clearskies.authentication import Authentication, Authorization, Public
-from clearskies.autodoc.request import JSONBody, Request
+from clearskies.autodoc.request import Request
 from clearskies.autodoc.response import Response
 from clearskies.autodoc.schema import Array, Object, String
 from clearskies.endpoint import Endpoint
@@ -477,6 +477,87 @@ class NoInput(Endpoint):
         # N/A for these endpoints
         return None
 
+    def _autodoc_schema_to_openapi_property(self, schema_node: Any) -> dict[str, Any]:
+        schema_type = getattr(schema_node, "_type", "string")
+
+        options = getattr(schema_node, "options", None)
+        if options:
+            return {
+                "oneOf": [self._autodoc_schema_to_openapi_property(option) for option in options],
+            }
+
+        if schema_type == "object":
+            children = getattr(schema_node, "children", None)
+            if not children:
+                return {"type": "object"}
+            return {
+                "type": "object",
+                "properties": {
+                    child.name: self._autodoc_schema_to_openapi_property(child)
+                    for child in children
+                    if getattr(child, "name", "")
+                },
+            }
+
+        if schema_type == "array":
+            item_definition = getattr(schema_node, "item_definition", None)
+            if item_definition:
+                return {
+                    "type": "array",
+                    "items": self._autodoc_schema_to_openapi_property(item_definition),
+                }
+            return {"type": "array", "items": {"type": "string"}}
+
+        return {"type": schema_type}
+
+    def _schema_hint_properties(self, schema: type[Schema] | None) -> dict[str, dict[str, Any]]:
+        if not schema:
+            return {}
+        return {
+            column_name: self._autodoc_schema_to_openapi_property(column.documentation()[0])
+            for column_name, column in schema.get_columns().items()
+        }
+
+    def _string_object_property(self, description: str, properties: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        return {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "description": description,
+                },
+                {
+                    "type": "object",
+                    "properties": properties,
+                },
+            ]
+        }
+
+    def _payload_property_schema(self) -> dict[str, Any]:
+        payload_object_properties = self._schema_hint_properties(self.payload_schema)
+        return self._string_object_property("Serialized JSON payload", payload_object_properties)
+
+    def _base_request_body_properties(self) -> dict[str, Any]:
+        return {"payload": self._payload_property_schema()}
+
+    def _request_body(self, properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": properties,
+        }
+        if required:
+            schema["required"] = required
+
+        return {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": schema,
+                    }
+                },
+            }
+        }
+
     def documentation(self) -> list[Request]:
         base_url = self.url.strip("/")
         if not base_url:
@@ -489,13 +570,10 @@ class NoInput(Endpoint):
                     description=f"Create credentials for {base_url}",
                     request_methods=["POST"],
                     relative_path=f"{base_url}/sync/create",
-                    parameters=[
-                        JSONBody(
-                            String("payload"),
-                            description="Serialized JSON payload",
-                            required=True,
-                        )
-                    ],
+                    root_properties=self._request_body(
+                        self._base_request_body_properties(),
+                        required=["payload"],
+                    ),
                     responses=[
                         Response(200, Object("response", [String("id"), String("response")]), "Create response"),
                         Response(400, String("error"), "Client error"),
@@ -509,18 +587,17 @@ class NoInput(Endpoint):
                     description=f"Revoke credentials for {base_url}",
                     request_methods=["POST"],
                     relative_path=f"{base_url}/sync/revoke",
-                    parameters=[
-                        JSONBody(
-                            String("payload"),
-                            description="Serialized JSON payload",
-                            required=True,
-                        ),
-                        JSONBody(
-                            Array("ids", String("id")),
-                            description="Credential ids to revoke",
-                            required=True,
-                        ),
-                    ],
+                    root_properties=self._request_body(
+                        {
+                            **self._base_request_body_properties(),
+                            "ids": {
+                                "type": "array",
+                                "description": "Credential ids to revoke",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        required=["payload", "ids"],
+                    ),
                     responses=[
                         Response(
                             200,
@@ -538,13 +615,10 @@ class NoInput(Endpoint):
                     description=f"Rotate credentials for {base_url}",
                     request_methods=["POST"],
                     relative_path=f"{base_url}/sync/rotate",
-                    parameters=[
-                        JSONBody(
-                            String("payload"),
-                            description="Serialized JSON payload",
-                            required=True,
-                        )
-                    ],
+                    root_properties=self._request_body(
+                        self._base_request_body_properties(),
+                        required=["payload"],
+                    ),
                     responses=[
                         Response(200, Object("response", [String("payload")]), "Rotate response"),
                         Response(400, String("error"), "Client error"),

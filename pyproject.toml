@@ -6,7 +6,9 @@ license = "MIT"
 readme = "./README.md"
 authors = [{name = "Conor Mancone", email = "cmancone@gmail.com"}]
 requires-python = ">=3.11,<4.0"
-dependencies = ["clear-skies>=2.0.0,<3.0.0"]
+dependencies = [
+    "clear-skies>=2.0.0,<3.0.0",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
@@ -38,19 +40,6 @@ exclude = [
     "src/clearskies_akeyless_custom_producer/integration_tests/*",
     "docs/**",
     "tests/**"
-]
-
-[tool.black]
-line-length = 120
-skip-magic-trailing-comma = false
-preview = true
-
-[tool.mypy]
-python_version = "3.11"
-
-exclude = [
-    ".*_test\\.py$",
-    "docs/.*"
 ]
 
 [tool.pytest.ini_options]
