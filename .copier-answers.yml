@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: v0.0.34
+_commit: v0.0.49
 _src_path: https://github.com/clearskies-py/clearskies-module-template
 author_email: cmancone@gmail.com
 author_name: Conor Mancone
@@ -9,6 +9,11 @@ create_configs: false
 create_endpoints: true
 create_models: false
 docs_modules_location: modules
+github_org_name: clearskies-py
 module_display_name: Akeyless Custom Producer
 module_name: akeyless-custom-producer
+python_versions:
+- '3.12'
+- '3.13'
+- '3.14'
 site_base_url: https://clearskies.info

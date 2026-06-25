@@ -7,14 +7,14 @@ show-fixes = true
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
-preview = true
+preview = false
 skip-magic-trailing-comma = false
 docstring-code-line-length = 100
 line-ending = "lf"
 
 [lint]
 # D - Enable all `pydocstyle` rules, limiting to those that adhere to the Pep257 convention enabled via `convention = "pep257"` below
-select = ["I", "D"]
+select = ["I", "D", "F401"]
 ignore = [
     "D100",  # pydocstyle: Missing docstring in public module.
     "D101",  # pydocstyle: Missing docstring in public class.
@@ -27,3 +27,6 @@ ignore = [
 
 [lint.pydocstyle]
 convention = "pep257"
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["I001"]

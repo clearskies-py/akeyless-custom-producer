@@ -1,5 +1,5 @@
 title: clear-skies-akeyless-custom-producer
-description: Clearskies Akeyless custom producer for
+description: "Akeyless Custom Producer module for Clearskies"
 theme: just-the-docs
 
 url: https://clearskies.info
@@ -63,7 +63,7 @@ heading_anchors: true
 
 aux_links:
   "Back to Clearskies": "/"
-  ' on GitHub': 'https://github.com/clearskies-akeyless-custom-producers/'
+  ' on GitHub': 'https://github.com/clearskies-py/'
 
 # Makes Aux links open in a new tab. Default is false
 aux_links_new_tab: true
@@ -83,7 +83,7 @@ aux_links_new_tab: true
 back_to_top: true
 back_to_top_text: 'Back to top'
 
-footer_content: 'Copyright &copy; 2025 Conor Mancone. Distributed by an <a href="https://github.com/clearskies-akeyless-custom-producers//blob/main/LICENSE">MIT license.</a>'
+footer_content: 'Copyright &copy; 2026 Conor Mancone. Distributed by an <a href="https://github.com/clearskies-py//blob/main/LICENSE">MIT license.</a>'
 
 # Footer last edited timestamp
 last_edit_timestamp: true # show or hide edit time - page must have `last_modified_date` defined in the frontmatter
@@ -92,7 +92,7 @@ last_edit_time_format: '%b %e %Y at %I:%M %p' # uses ruby's time format: https:/
 # Footer "Edit this page on GitHub" link text
 gh_edit_link: false # show or hide edit this page link
 gh_edit_link_text: 'Edit this page on GitHub'
-gh_edit_repository: 'https://github.com/clearskies-akeyless-custom-producers/' # the github URL for your repo
+gh_edit_repository: 'https://github.com/clearskies-py/' # the github URL for your repo
 gh_edit_branch: 'main' # the branch that your docs is served from
 # gh_edit_source: docs # the source that your files originate from
 gh_edit_view_mode: 'tree' # "tree" or "edit" if you want the user to jump into the editor immediately

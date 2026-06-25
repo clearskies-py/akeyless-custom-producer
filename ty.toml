@@ -1,0 +1,41 @@
+# ty configuration - https://docs.astral.sh/ty/configuration/
+# Equivalent to the mypy.ini configuration
+
+[environment]
+# Python version to target (adjust as needed based on your .python-version)
+python-version = "3.12"
+
+[src]
+# Equivalent to exclude patterns in mypy
+# Exclude tests/fixtures and docs folders
+exclude = [
+    "tests/fixtures/",
+    "docs/",
+    "tests/",
+]
+
+[rules]
+# Strict mode equivalent settings
+# ty uses different rule names than mypy
+
+# Equivalent to strict = true in mypy
+# These rules enforce strict type checking
+invalid-argument-type = "error"
+invalid-assignment = "error"
+invalid-return-type = "error"
+missing-argument = "error"
+too-many-positional-arguments = "error"
+unknown-argument = "error"
+unresolved-attribute = "error"
+unresolved-import = "error"
+unresolved-reference = "error"
+
+# Equivalent to warn_unused_ignores = true
+unused-ignore-comment = "warn"
+
+# Warn on redundant casts (optional - can be set to "ignore" if too noisy)
+redundant-cast = "warn"
+
+[terminal]
+# Equivalent to pretty = true and show_error_context = true
+output-format = "full"

@@ -67,7 +67,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       run-mypy: ${{ needs.changes.outputs.tests == 'true' }}
       run-pytest: ${{ needs.changes.outputs.tests == 'true' }}
-      run-black: ${{ needs.changes.outputs.tests == 'true' }}
+      run-ruff-format: ${{ needs.changes.outputs.tests == 'true' }}
       run-ruff-check: ${{ needs.changes.outputs.tests == 'true' }}
     secrets: inherit
     strategy:
@@ -76,6 +76,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
       fail-fast: false
 
   status:

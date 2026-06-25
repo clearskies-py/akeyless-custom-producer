@@ -79,7 +79,7 @@ jobs:
       # STEP 2: Commit all file changes together
       - name: Commit All Changes
         run: |
-          git add pyproject.toml CHANGELOG.md
+          git add pyproject.toml CHANGELOG.md uv.lock
           git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }}"
 
       # STEP 3: Create the tag for the final commit

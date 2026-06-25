@@ -33,6 +33,9 @@ jobs:
           enable-cache: true
       - name: Publish
         run: |
+            uv sync --locked --all-groups --all-extras
+            uv add clear-skies-doc-builder --group doc
+            export PYTHONPATH="$PWD/src"
             cd docs/python
             uv run build.py
             sudo apt update
