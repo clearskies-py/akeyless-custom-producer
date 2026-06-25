@@ -5,8 +5,7 @@ from typing import Any, Callable
 import clearskies.configs
 import clearskies.exceptions
 from clearskies.authentication import Authentication, Authorization, Public
-from clearskies.autodoc.request import JSONBody, Request
-from clearskies.autodoc.schema import String
+from clearskies.autodoc.request import Request
 from clearskies.input_outputs import InputOutput
 from clearskies.schema import Schema
 
@@ -14,6 +13,8 @@ from .no_input import NoInput
 
 
 class WithInput(NoInput):
+    _descriptor_config_map = None
+
     """
     The necessary endpoints for a custom producer (or rotator) that does accept input from the client.
 
@@ -184,15 +185,17 @@ class WithInput(NoInput):
 
     def documentation(self) -> list[Request]:
         requests = super().documentation()
+        input_object_properties = self._schema_hint_properties(self.input_schema)
+        input_property_schema = self._string_object_property("Serialized JSON input", input_object_properties)
 
         for request in requests:
             if request.relative_path.endswith("/sync/create") or request.relative_path.endswith("/sync/rotate"):
-                request.add_parameter(
-                    JSONBody(
-                        String("input"),
-                        description="Serialized JSON input",
-                        required=False,
-                    )
+                request.root_properties = self._request_body(
+                    {
+                        **self._base_request_body_properties(),
+                        "input": input_property_schema,
+                    },
+                    required=["payload"],
                 )
 
         return requests
