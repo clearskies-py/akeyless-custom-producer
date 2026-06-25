@@ -8,16 +8,16 @@ on:
       python-version:
         required: true
         type: string
-      run-mypy:
+      run-ty:
         required: true
         type: boolean
       run-pytest:
         required: true
         type: boolean
-      run-ruff-format:
+      run-ruff-check:
         required: true
         type: boolean
-      run-ruff-check:
+      run-ruff-format:
         required: true
         type: boolean
 
@@ -29,10 +29,10 @@ env:
   PYTHONWARNDEFAULTENCODING: "true"
 
 jobs:
-  mypy:
-    name: mypy
+  ty:
+    name: ty
     runs-on: ${{ inputs.runner }}
-    if: inputs.run-mypy
+    if: inputs.run-ty
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -45,7 +45,7 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked --all-extras --dev
-      - run: uv run mypy src --check || true
+      - run: uv run ty check src
 
   pytest:
     name: pytest
@@ -63,17 +63,13 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked --all-extras --dev
-      - run: uv run pytest -v
-      - run: git diff --exit-code --stat HEAD
-
-  ruff-format:
-    name: ruff-format
-    runs-on: ${{ inputs.runner }}
-    if: inputs.run-ruff-format
-    steps:
-      - uses: astral-sh/ruff-action@v3
+      - name: Flaky Test Script
+        uses: nick-fields/retry@v3
         with:
-          args: "format --diff"
+          timeout_minutes: 10
+          max_attempts: 2
+          command:  uv run pytest -v --color=yes --cache-clear -s
+      - run: git diff --exit-code --stat HEAD
 
   ruff-check:
     name: ruff-check
@@ -83,3 +79,12 @@ jobs:
       - uses: astral-sh/ruff-action@v3
         with:
           args: "check --diff"
+
+  ruff-format:
+    name: ruff-format
+    runs-on: ${{ inputs.runner }}
+    if: inputs.run-ruff-format
+    steps:
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --diff"

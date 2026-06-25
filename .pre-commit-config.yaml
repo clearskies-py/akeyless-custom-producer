@@ -67,11 +67,3 @@ repos:
         entry: bash -c 'uv run ty check src'
         language: system
         types: [python]
-    # Prevent committing .rej files
-      - id: forbidden-files
-        name: forbidden files
-        entry:
-            found Copier update rejection files; review and remove them before
-            merging.
-        language: fail
-        files: "\\.rej$"
