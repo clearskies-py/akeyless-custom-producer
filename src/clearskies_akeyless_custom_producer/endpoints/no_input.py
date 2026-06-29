@@ -273,6 +273,45 @@ class NoInput(Endpoint):
         authentication: Authentication = Public(),
         authorization: Authorization = Authorization(),
     ):
+        """
+        Configure a NoInput custom producer/rotator endpoint group.
+
+        This wires the implementation callables (`create`, `rotate`, `revoke`) together with
+        endpoint metadata (`url`, `payload_schema`, `id_column_name`) and request security settings.
+        The resulting endpoint exposes the standard Akeyless webhook paths under the optional `url`
+        prefix (`/sync/create`, `/sync/rotate`, `/sync/revoke`).
+
+        Example:
+        ```python
+        import clearskies
+        import clearskies_akeyless_custom_producer
+
+
+        class VendorPayload(clearskies.Schema):
+            client_id = clearskies.columns.String()
+            client_secret = clearskies.columns.String()
+
+
+        def create(payload, client_id, client_secret):
+            return {
+                "username": f"user-{client_id}",
+                "password": "temporary-password",
+            }
+
+
+        def revoke(payload, id_to_delete):
+            return None
+
+
+        endpoint = clearskies_akeyless_custom_producer.endpoints.NoInput(
+            url="/vendor-a",
+            create_callable=create,
+            revoke_callable=revoke,
+            payload_schema=VendorPayload,
+            id_column_name="username",
+        )
+        ```
+        """
         self.url = url
         if create_callable:
             self.create_callable = create_callable
@@ -295,6 +334,29 @@ class NoInput(Endpoint):
             )
 
     def handle(self, input_output: InputOutput):
+        r"""
+        Route the incoming request to the matching sync operation.
+
+        The request path is matched against the configured Akeyless webhook routes. The endpoint then:
+        1. Parses and validates the incoming `payload`.
+        2. Runs schema validation when `payload_schema` is configured.
+        3. Dispatches to `create`, `rotate`, or `revoke`.
+
+        For example, if this endpoint is configured with `url="/vendor-a"`, these
+        webhook paths are accepted:
+
+         * `/vendor-a/sync/create`
+         * `/vendor-a/sync/rotate`
+         * `/vendor-a/sync/revoke`
+
+        Example request body:
+
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\", \"client_secret\": \"def\"}"
+        }
+        ```
+        """
         # figure out if we are creating, revoking, or rotating
         base_url = self.url.strip("/")
         incoming_url = input_output.get_full_path().strip("/")
@@ -342,6 +404,34 @@ class NoInput(Endpoint):
             return input_output.respond(", ".join([f"{key}: {value}" for (key, value) in e.errors.items()]), 400)
 
     def create(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
+        """
+        Create new temporary credentials for the caller.
+
+        The configured `create_callable` is invoked through DI with both expanded payload keys and
+        the full payload object. Its return value is wrapped into the response format Akeyless expects:
+        `{"id": "...", "response": {...}}`.
+
+        Example:
+        ```python
+        def create(payload, client_id, client_secret):
+            return {
+                "username": f"tmp-{client_id}",
+                "password": "tmp-password",
+            }
+        ```
+
+        The HTTP response body includes:
+
+        ```json
+        {
+          "id": "tmp-abc",
+          "response": {
+            "username": "tmp-abc",
+            "password": "tmp-password"
+          }
+        }
+        ```
+        """
         if not self.create_callable:
             raise clearskies.exceptions.ClientError(
                 "Creating credentials is not available because not create_callable is configured."
@@ -372,6 +462,22 @@ class NoInput(Endpoint):
         )
 
     def revoke(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
+        r"""
+        Revoke one or more previously issued credentials.
+
+        If `id_column_name` is configured, each id from the request body is passed to
+        `revoke_callable` as `id_to_delete`. If revocation is intentionally disabled
+        (`id_column_name` omitted), the endpoint still returns a success response with
+        the provided ids so Akeyless can continue its normal flow.
+
+        Example:
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\"}",
+          "ids": ["tmp-1", "tmp-2"]
+        }
+        ```
+        """
         try:
             ids = self.get_ids(input_output)
         except clearskies.exceptions.ClientError as e:
@@ -405,6 +511,31 @@ class NoInput(Endpoint):
         )
 
     def rotate(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
+        r"""
+        Rotate root credentials and return the updated payload.
+
+        When `rotate_callable` is configured, it is used directly. Otherwise this falls back to a
+        create-then-revoke flow: a new credential is created, then the previous one is revoked when
+        `revoke_callable` is available.
+
+        Example rotate callable:
+
+        ```python
+        def rotate(payload, client_id, client_secret):
+            return {
+                "client_id": client_id,
+                "client_secret": "rotated-secret",
+            }
+        ```
+
+        Example response shape:
+
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\", \"client_secret\": \"rotated-secret\"}"
+        }
+        ```
+        """
         # easy if we can actually rotate
         if self.rotate_callable:
             return input_output.respond(
@@ -448,6 +579,19 @@ class NoInput(Endpoint):
         return super().matches_request(input_output, allow_partial=True)
 
     def get_payload(self, input_output: InputOutput) -> dict[str, Any]:
+        r"""
+        Read and decode the required serialized JSON payload.
+
+        The request body must contain a `payload` field with a JSON-encoded string.
+        This method deserializes that string into a dictionary used by endpoint callables.
+
+        Example:
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\", \"client_secret\": \"def\"}"
+        }
+        ```
+        """
         request_json = self.get_request_data(input_output, required=True)
         if "payload" not in request_json:
             raise clearskies.exceptions.ClientError("Missing 'payload' in JSON POST body")
@@ -466,6 +610,17 @@ class NoInput(Endpoint):
         return payload
 
     def get_ids(self, input_output: InputOutput) -> list[str]:
+        r"""
+        Read the `ids` array used by revoke requests.
+
+        Example:
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\"}",
+          "ids": ["cred-1", "cred-2"]
+        }
+        ```
+        """
         request_json = self.get_request_data(input_output, required=True)
         if "ids" not in request_json:
             raise clearskies.exceptions.ClientError("Missing 'ids' in JSON POST body")
@@ -474,10 +629,21 @@ class NoInput(Endpoint):
         return cast(list[str], request_json["ids"])
 
     def populate_routing_data(self, input_output: InputOutput) -> Any:
+        """
+        Return no routing data.
+
+        This endpoint performs internal routing across multiple fixed paths, so there are no route
+        parameters to extract into routing data.
+        """
         # N/A for these endpoints
         return None
 
     def _autodoc_schema_to_openapi_property(self, schema_node: Any) -> dict[str, Any]:
+        """
+        Convert a clearskies autodoc schema node into an OpenAPI property definition.
+
+        This supports primitive values, arrays, objects, and unions (`oneOf`).
+        """
         schema_type = getattr(schema_node, "_type", "string")
 
         options = getattr(schema_node, "options", None)
@@ -511,6 +677,11 @@ class NoInput(Endpoint):
         return {"type": schema_type}
 
     def _schema_hint_properties(self, schema: type[Schema] | None) -> dict[str, dict[str, Any]]:
+        """
+        Build OpenAPI property hints from a clearskies Schema class.
+
+        Each column in the schema is converted into the equivalent OpenAPI property definition.
+        """
         if not schema:
             return {}
         return {
@@ -519,6 +690,12 @@ class NoInput(Endpoint):
         }
 
     def _string_object_property(self, description: str, properties: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        """
+        Build a flexible OpenAPI property that accepts either string or object input.
+
+        Akeyless currently sends payload/input as serialized strings, but the object alternative
+        helps consumers understand the expected JSON shape in generated docs.
+        """
         return {
             "oneOf": [
                 {
@@ -533,13 +710,26 @@ class NoInput(Endpoint):
         }
 
     def _payload_property_schema(self) -> dict[str, Any]:
+        """Return the OpenAPI schema definition for the required `payload` request field."""
         payload_object_properties = self._schema_hint_properties(self.payload_schema)
         return self._string_object_property("Serialized JSON payload", payload_object_properties)
 
     def _base_request_body_properties(self) -> dict[str, Any]:
+        """Return shared requestBody properties used across sync endpoint docs."""
         return {"payload": self._payload_property_schema()}
 
     def _request_body(self, properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
+        """
+        Build the OpenAPI `requestBody` structure for autodoc.
+
+        Example:
+        ```python
+        self._request_body(
+            {"payload": {"type": "string"}},
+            required=["payload"],
+        )
+        ```
+        """
         schema: dict[str, Any] = {
             "type": "object",
             "properties": properties,
@@ -559,6 +749,19 @@ class NoInput(Endpoint):
         }
 
     def documentation(self) -> list[Request]:
+        """
+        Generate clearskies autodoc request definitions for configured sync endpoints.
+
+        Only operations that are enabled by callables are documented. The generated request docs include
+        request methods, relative paths, request body schema, and success/error response shapes.
+
+        Example:
+        ```python
+        requests = endpoint.documentation()
+        for request in requests:
+            print(request.relative_path)
+        ```
+        """
         base_url = self.url.strip("/")
         if not base_url:
             return []
