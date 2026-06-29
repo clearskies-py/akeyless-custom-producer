@@ -1,9 +1,3 @@
-# /// script
-# requires-python = ">=3.12"
-# dependencies = [
-#     "clear-skies>=2.0",
-# ]
-# ///
 from __future__ import annotations
 
 import json

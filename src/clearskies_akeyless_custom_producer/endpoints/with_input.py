@@ -13,8 +13,6 @@ from .no_input import NoInput
 
 
 class WithInput(NoInput):
-    _descriptor_config_map = None
-
     """
     The necessary endpoints for a custom producer (or rotator) that does accept input from the client.
 
@@ -116,6 +114,8 @@ class WithInput(NoInput):
     ```
     """
 
+    _descriptor_config_map = None
+
     """
     A schema to describe the allowed input payload.
 
@@ -140,6 +140,36 @@ class WithInput(NoInput):
         authentication: Authentication = Public(),
         authorization: Authorization = Authorization(),
     ):
+        """
+        Configure a custom producer/rotator endpoint that supports additional client input.
+
+        This extends `NoInput` by allowing request-time `input` data to be validated with
+        `input_schema` and merged into the payload before credential creation.
+
+        Example:
+        ```python
+        import clearskies
+        import clearskies_akeyless_custom_producer
+
+
+        class RootPayload(clearskies.Schema):
+            client_id = clearskies.columns.String()
+            client_secret = clearskies.columns.String()
+            default_scope = clearskies.columns.String()
+
+
+        class RequestedScopeInput(clearskies.Schema):
+            requested_scope = clearskies.columns.String()
+
+
+        endpoint = clearskies_akeyless_custom_producer.endpoints.WithInput(
+            url="/vendor-b",
+            create_callable=create,
+            payload_schema=RootPayload,
+            input_schema=RequestedScopeInput,
+        )
+        ```
+        """
         super().__init__(
             url=url,
             create_callable=create_callable,
@@ -154,6 +184,21 @@ class WithInput(NoInput):
             self.input_schema = input_schema
 
     def create(self, input_output: InputOutput, payload: dict[str, Any]) -> Any:
+        r"""
+        Merge optional validated input into payload, then create credentials.
+
+        The `input` object from the request body is validated against `input_schema` when configured.
+        Valid input fields are merged on top of payload fields before delegating to `NoInput.create`.
+
+        Example request body:
+
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\", \"client_secret\": \"def\", \"default_scope\": \"read\"}",
+          "input": {"requested_scope": "write"}
+        }
+        ```
+        """
         try:
             input = self.get_input(input_output)
         except clearskies.exceptions.ClientError as e:
@@ -176,6 +221,19 @@ class WithInput(NoInput):
         return super().create(input_output, payload)
 
     def get_input(self, input_output: InputOutput) -> dict[str, Any]:
+        r"""
+        Read the optional `input` object from the request body.
+
+        Missing input is treated as `{}`. When present, the value must be a JSON object.
+
+        Example:
+        ```json
+        {
+          "payload": "{\"client_id\": \"abc\"}",
+          "input": {"requested_scope": "reports:read"}
+        }
+        ```
+        """
         request_json = self.get_request_data(input_output, required=True)
         if "input" not in request_json or not request_json["input"]:
             return {}
@@ -184,6 +242,20 @@ class WithInput(NoInput):
         return request_json["input"]
 
     def documentation(self) -> list[Request]:
+        """
+        Extend endpoint autodoc definitions to include the optional `input` field.
+
+        This updates the create and rotate requestBody schemas so generated docs describe both:
+        - required serialized `payload`
+        - optional `input` with schema hints from `input_schema`
+
+        Example:
+        ```python
+        requests = endpoint.documentation()
+        for request in requests:
+            print(request.relative_path, request.request_methods)
+        ```
+        """
         requests = super().documentation()
         input_object_properties = self._schema_hint_properties(self.input_schema)
         input_property_schema = self._string_object_property("Serialized JSON input", input_object_properties)
