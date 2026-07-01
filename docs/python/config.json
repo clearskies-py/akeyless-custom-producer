@@ -1,13 +1,21 @@
 {
   "tree": [
-     {
-            "title": "Endpoints",
-            "source": "clearskies.endpoint.Endpoint",
-            "builder": "clearskies_doc_builder.builders.Module",
-            "classes": [
-                "clearskies_akeyless_custom_producer.endpoints.NoInput",
-                "clearskies_akeyless_custom_producer.endpoints.WithInput"
-            ]
-        }
+    {
+        "title": "Endpoints",
+        "source": "clearskies.endpoint.Endpoint",
+        "builder": "clearskies_doc_builder.builders.Module",
+        "classes": [
+            "clearskies_akeyless_custom_producer.endpoints.NoInput",
+            "clearskies_akeyless_custom_producer.endpoints.WithInput"
+        ]
+    },
+    {
+        "title": "Authentication",
+        "source": "clearskies.authentication.Authentication",
+        "builder": "clearskies_doc_builder.builders.Module",
+        "classes": [
+            "clearskies_akeyless_custom_producer.authentication.AkeylessProducerAuthentication"
+        ]
+    }
   ]
 }
