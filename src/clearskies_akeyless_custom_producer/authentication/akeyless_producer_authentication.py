@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, cast
 
-from clearskies import configs, decorators, di, loggable
+from clearskies import configs, decorators, loggable
 from clearskies.authentication import Authentication
+from clearskies.di import InjectableProperties, inject
 from clearskies.exceptions import Authentication as AuthenticationException
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AkeylessProducerAuthentication(Authentication, di.InjectableProperties, loggable.Loggable):
+class AkeylessProducerAuthentication(Authentication, InjectableProperties, loggable.Loggable):
     """
     Authenticate requests from Akeyless using the AkeylessCreds header.
 
@@ -171,12 +171,17 @@ class AkeylessProducerAuthentication(Authentication, di.InjectableProperties, lo
     """
     The requests object for making HTTP calls.
     """
-    requests = di.inject.Requests()
+    requests = inject.Requests()
 
     """
     The dependency injection container for calling functions with injection.
     """
-    di = di.inject.Di()
+    di = inject.Di()
+
+    """
+    The jwcrypto.jws library for decoding JWT tokens.
+    """
+    jws = inject.ByStandardLib("jwcrypto.jws")
 
     @decorators.parameters_to_properties
     def __init__(
@@ -194,32 +199,41 @@ class AkeylessProducerAuthentication(Authentication, di.InjectableProperties, lo
         """
         Decode JWT payload (without verification) and extract access_id claim.
 
-        Performs a base64url decode of the JWT payload segment (middle part between dots).
-        Returns the `access_id` claim from the decoded payload.
+        Uses the jwcrypto library to safely extract the JWT payload without verifying the signature
+        (signature verification is done by the Akeyless validation endpoint).
 
         Raises `clearskies.exceptions.Authentication` if the token is malformed or the claim
         is not found.
         """
         try:
-            parts = token.split(".")
-            if len(parts) != 3:
-                raise AuthenticationException("Invalid token format: expected 3 JWT segments")
-            # Decode the payload (second segment)
-            payload_encoded = parts[1]
-            # Add padding if needed
-            padding = 4 - (len(payload_encoded) % 4)
-            if padding and padding != 4:
-                payload_encoded += "=" * padding
-            payload_bytes = base64.urlsafe_b64decode(payload_encoded)
-            payload = json.loads(payload_bytes.decode("utf-8"))
-            self.logger.debug("Decoded JWT payload: %s", payload)
+            # 1. Instantiate the lower-level JWS object
+            jws_token = self.jws.JWS()
+
+            # 2. Deserialize the token structure (does not require a key)
+            jws_token.deserialize(token)
+
+            # 3. Read the payload object directly bypassing .verify()
+            raw_payload_bytes = jws_token.objects.get("payload")
+            if not raw_payload_bytes:
+                raise AuthenticationException("Token payload is missing")
+
+            if isinstance(raw_payload_bytes, str):
+                jwt_claims = json.loads(raw_payload_bytes)
+            else:
+                jwt_claims = json.loads(cast(bytes, raw_payload_bytes).decode("utf-8"))
+            self.logger.debug("Decoded JWT payload: %s", jwt_claims)
+
             # Try common claim names for access_id
             for key in ["access_id", "aid", "client_id", "sub"]:
-                if key in payload:
-                    return str(payload[key])
+                if key in jwt_claims:
+                    return str(jwt_claims[key])
             raise AuthenticationException("Token payload missing access_id claim")
-        except (ValueError, json.JSONDecodeError, AttributeError, IndexError) as e:
-            raise AuthenticationException(f"Failed to decode token payload: {e}") from e
+        except AuthenticationException:
+            raise
+        except ImportError as e:
+            raise AuthenticationException("JWT decoding requires jwcrypto. Install with: pip install 'jwcrypto'") from e
+        except Exception as e:
+            raise AuthenticationException(f"Failed to decode token: {e}") from e
 
     def authenticate(self, input_output: InputOutput) -> bool:
         """
