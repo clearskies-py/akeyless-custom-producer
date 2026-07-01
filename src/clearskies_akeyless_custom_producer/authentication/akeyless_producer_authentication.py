@@ -327,10 +327,14 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
         except json.JSONDecodeError as e:
             raise AuthenticationException("Validation endpoint returned invalid JSON") from e
 
-        # Build authorization data from response
-        # The response may include validated access_id, sub_claims, etc.
+        # Validate required fields in response
+        if "access_id" not in response_data:
+            raise AuthenticationException("Validation endpoint response missing required 'access_id' field")
+        if "sub_claims" not in response_data:
+            raise AuthenticationException("Validation endpoint response missing required 'sub_claims' field")
+
         auth_data = {
-            "access_id": response_data.get("access_id", access_id),
-            "sub_claims": response_data.get("sub_claims", {}),
+            "access_id": response_data["access_id"],
+            "sub_claims": response_data["sub_claims"],
         }
         return auth_data
