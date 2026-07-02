@@ -7,12 +7,19 @@ import clearskies
 from clearskies_akeyless_custom_producer.authentication import AkeylessProducerAuthentication
 
 
-def _create_test_jwt_token(access_id: str, sub_claims: dict | None = None) -> str:
-    """Create a test JWT token with the given access_id and sub_claims."""
+def _create_test_jwt_token(
+    access_id: str,
+    sub_claims: dict | None = None,
+    extra_claims: dict | None = None,
+) -> str:
+    """Create a test JWT token with the given access_id and claims."""
     if sub_claims is None:
         sub_claims = {}
+    if extra_claims is None:
+        extra_claims = {}
 
     payload = {"access_id": access_id, "sub_claims": sub_claims}
+    payload.update(extra_claims)
     # Simple base64 encoding (not real JWT - just for testing token structure)
     import base64
 
@@ -241,6 +248,86 @@ class TestAkeylessProducerAuthentication(unittest.TestCase):
 
             status_code, response_data, _ = context(request_headers={"AkeylessCreds": token})
             assert status_code == 200
+
+    def test_expected_account_id_accepts_matching_account_id(self) -> None:
+        """Accept token when configured expected_account_id matches JWT account_id."""
+        token = _create_test_jwt_token("p-producer1", extra_claims={"account_id": "acc-123"})
+
+        with patch("requests.Session", return_value=self.mock_requests):
+            context = clearskies.contexts.Context(
+                clearskies.endpoints.Callable(
+                    lambda: {"hello": "world"},
+                    authentication=AkeylessProducerAuthentication(
+                        expected_item_name="/my-producer",
+                        expected_account_id="acc-123",
+                    ),
+                ),
+                bindings={
+                    "jwcrypto.jws": self.mock_jws_module,
+                },
+            )
+
+            self.mock_requests.post.return_value.status_code = 200
+            self.mock_requests.post.return_value.json.return_value = {
+                "access_id": "p-producer1",
+                "sub_claims": {},
+            }
+
+            status_code, _, _ = context(request_headers={"AkeylessCreds": token})
+            assert status_code == 200
+
+    def test_expected_account_id_accepts_matching_attaches_account_id(self) -> None:
+        """Accept token when JWT attaches JSON contains matching account_id."""
+        token = _create_test_jwt_token(
+            "p-producer1",
+            extra_claims={
+                "attaches": '{"account_id":"acc-abc","item_name":"/my-producer"}',
+            },
+        )
+
+        with patch("requests.Session", return_value=self.mock_requests):
+            context = clearskies.contexts.Context(
+                clearskies.endpoints.Callable(
+                    lambda: {"hello": "world"},
+                    authentication=AkeylessProducerAuthentication(
+                        expected_item_name="/my-producer",
+                        expected_account_id="acc-abc",
+                    ),
+                ),
+                bindings={
+                    "jwcrypto.jws": self.mock_jws_module,
+                },
+            )
+
+            self.mock_requests.post.return_value.status_code = 200
+            self.mock_requests.post.return_value.json.return_value = {
+                "access_id": "p-producer1",
+                "sub_claims": {},
+            }
+
+            status_code, _, _ = context(request_headers={"AkeylessCreds": token})
+            assert status_code == 200
+
+    def test_expected_account_id_rejects_mismatched_account_id(self) -> None:
+        """Reject token when configured expected_account_id does not match JWT account_id."""
+        token = _create_test_jwt_token("p-producer1", extra_claims={"account_id": "acc-other"})
+
+        with patch("requests.Session", return_value=self.mock_requests):
+            context = clearskies.contexts.Context(
+                clearskies.endpoints.Callable(
+                    lambda: {"hello": "world"},
+                    authentication=AkeylessProducerAuthentication(
+                        expected_item_name="/my-producer",
+                        expected_account_id="acc-123",
+                    ),
+                ),
+                bindings={
+                    "jwcrypto.jws": self.mock_jws_module,
+                },
+            )
+
+            status_code, _, _ = context(request_headers={"AkeylessCreds": token})
+            assert status_code == 401
 
     def test_callable_allowlist_accepted(self) -> None:
         """Accept token when access_id is returned by callable allowlist."""

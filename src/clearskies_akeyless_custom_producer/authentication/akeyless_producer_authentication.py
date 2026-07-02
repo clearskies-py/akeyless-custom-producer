@@ -56,6 +56,9 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
       If callable, evaluated at request time for dynamic allowlists. If not set, any validated token
       from Akeyless is accepted. Default: []
 
+    - `expected_account_id` (str): Optional Akeyless account ID to enforce from the JWT payload.
+      If set, requests are rejected when the token account ID does not match. Default: ""
+
     - `validate_url` (str): The Akeyless validation endpoint URL. For testing or on-premise
       deployments, you can override this. Default:
       "https://auth.akeyless.io/validate-producer-credentials"
@@ -157,6 +160,11 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
     validate_url = configs.String(default="https://auth.akeyless.io/validate-producer-credentials")
 
     """
+    Optional Akeyless account ID that must match the token account ID.
+    """
+    expected_account_id = configs.String(default="")
+
+    """
     Timeout (in seconds) for HTTP requests to the validation endpoint.
     """
     request_timeout_seconds = configs.Float(default=2.0)
@@ -188,6 +196,7 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
         self,
         expected_item_name: str = "",
         allowlist_access_ids: list[str] | Callable[[], list[str]] | None = None,
+        expected_account_id: str = "",
         validate_url: str = "https://auth.akeyless.io/validate-producer-credentials",
         request_timeout_seconds: float = 2.0,
         allow_dry_run: bool = True,
@@ -195,9 +204,9 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
         """Initialize Akeyless producer authentication."""
         self.finalize_and_validate_configuration()
 
-    def _extract_access_id_from_jwt_payload(self, token: str) -> str:
+    def _extract_access_id_and_account_id_from_jwt_payload(self, token: str) -> tuple[str, str | None]:
         """
-        Decode JWT payload (without verification) and extract access_id claim.
+        Decode JWT payload (without verification) and extract access_id/account_id claims.
 
         Uses the jwcrypto library to safely extract the JWT payload without verifying the signature
         (signature verification is done by the Akeyless validation endpoint).
@@ -226,8 +235,30 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
             # Try common claim names for access_id
             for key in ["access_id", "aid", "client_id", "sub"]:
                 if key in jwt_claims:
-                    return str(jwt_claims[key])
-            raise AuthenticationException("Token payload missing access_id claim")
+                    access_id = str(jwt_claims[key])
+                    break
+            else:
+                raise AuthenticationException("Token payload missing access_id claim")
+
+            account_id: str | None = None
+            if "account_id" in jwt_claims and jwt_claims["account_id"] is not None:
+                account_id = str(jwt_claims["account_id"])
+            else:
+                attaches = jwt_claims.get("attaches")
+                attaches_dict: dict[str, Any] = {}
+                if isinstance(attaches, dict):
+                    attaches_dict = attaches
+                elif isinstance(attaches, str):
+                    try:
+                        parsed_attaches = json.loads(attaches)
+                        if isinstance(parsed_attaches, dict):
+                            attaches_dict = parsed_attaches
+                    except (TypeError, json.JSONDecodeError):
+                        attaches_dict = {}
+                if attaches_dict.get("account_id") is not None:
+                    account_id = str(attaches_dict["account_id"])
+
+            return access_id, account_id
         except AuthenticationException:
             raise
         except ImportError as e:
@@ -255,7 +286,10 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
 
         # Extract access_id from token payload for the validation request
         # This will raise AuthenticationException if token is invalid
-        extracted_access_id = self._extract_access_id_from_jwt_payload(token)
+        extracted_access_id, extracted_account_id = self._extract_access_id_and_account_id_from_jwt_payload(token)
+
+        if self.expected_account_id and extracted_account_id != self.expected_account_id:
+            raise AuthenticationException("Token account is not authorized")
 
         # Validate with Akeyless
         try:
@@ -330,11 +364,15 @@ class AkeylessProducerAuthentication(Authentication, InjectableProperties, logga
         # Validate required fields in response
         if "access_id" not in response_data:
             raise AuthenticationException("Validation endpoint response missing required 'access_id' field")
-        if "sub_claims" not in response_data:
-            raise AuthenticationException("Validation endpoint response missing required 'sub_claims' field")
+
+        sub_claims = response_data.get("sub_claims", {})
+        if sub_claims is None:
+            sub_claims = {}
+        if not isinstance(sub_claims, dict):
+            raise AuthenticationException("Validation endpoint field 'sub_claims' must be an object")
 
         auth_data = {
             "access_id": response_data["access_id"],
-            "sub_claims": response_data["sub_claims"],
+            "sub_claims": sub_claims,
         }
         return auth_data
