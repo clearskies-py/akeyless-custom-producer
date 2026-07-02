@@ -55,6 +55,38 @@ class TestAkeylessProducerAuthentication(unittest.TestCase):
         self.mock_jws_module = MockJWSModule()
         self.mock_requests = MagicMock()
 
+    def test_real_jwcrypto_imports_through_di_without_binding(self) -> None:
+        """Use real jwcrypto module through DI without explicit binding."""
+        # Prebuilt compact JWS with payload:
+        # {"access_id":"p-producer1","sub_claims":{"client_id":"client123"}}
+        # The test itself does not import jwcrypto; only DI must resolve `jwcrypto.jws`.
+        token = (
+            "eyJhbGciOiJIUzI1NiJ9."
+            "eyJhY2Nlc3NfaWQiOiJwLXByb2R1Y2VyMSIsInN1Yl9jbGFpbXMiOnsiY2xpZW50X2lkIjoiY2xpZW50MTIzIn19."
+            "c2ln"
+        )
+
+        with patch("requests.Session", return_value=self.mock_requests):
+            context = clearskies.contexts.Context(
+                clearskies.endpoints.Callable(
+                    lambda: {"hello": "world"},
+                    authentication=AkeylessProducerAuthentication(
+                        expected_item_name="/my-producer",
+                    ),
+                ),
+            )
+
+            self.mock_requests.post.return_value.status_code = 200
+            self.mock_requests.post.return_value.json.return_value = {
+                "access_id": "p-producer1",
+                "sub_claims": {"client_id": "client123"},
+            }
+
+            status_code, _, _ = context(request_headers={"AkeylessCreds": token})
+
+            assert status_code == 200
+            self.mock_requests.post.assert_called_once()
+
     def test_successful_authentication_extracts_access_id(self) -> None:
         """Successfully authenticate when Akeyless returns validated access_id."""
         token = _create_test_jwt_token("p-producer1")
