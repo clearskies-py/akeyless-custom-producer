@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.11] - 2026-10-20
+
+### Changed
+- Update dependencies and require certifi 2026.10.19
+
 ## [2.0.10] - 2026-07-02
 
 ### Changed
+- Bump version to v2.0.10 by @github-actions[bot]
 - Enforce optional JWT account ID
 
 ## [2.0.9] - 2026-07-02
@@ -72,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * @ made their first contribution
 * @tnijboer made their first contribution in [#3](https://github.com/clearskies-py/akeyless-custom-producer/pull/3)
 * @cmancone made their first contribution
+[2.0.11]: https://github.com/clearskies-py/akeyless-custom-producer/compare/v2.0.10..v2.0.11
 [2.0.10]: https://github.com/clearskies-py/akeyless-custom-producer/compare/v2.0.9..v2.0.10
 [2.0.9]: https://github.com/clearskies-py/akeyless-custom-producer/compare/v2.0.8..v2.0.9
 [2.0.8]: https://github.com/clearskies-py/akeyless-custom-producer/compare/v2.0.7..v2.0.8
